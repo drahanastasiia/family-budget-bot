@@ -1,0 +1,6 @@
+.env
+*.db
+*.pickle
+*.log
+__pycache__/
+*.pyc

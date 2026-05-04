@@ -88,17 +88,17 @@ def _build_report(month: int, year: int) -> Optional[str]:
         by_user[e['username']] = by_user.get(e['username'], 0) + e['amount']
 
     lines = [
-        f'📊 *Звіт за {MONTH_UA[month]} {year}*',
+        f'📊 <b>Звіт за {MONTH_UA[month]} {year}</b>',
         '',
-        f'💰 *Загальна сума:* {total:,.2f} грн',
+        f'💰 <b>Загальна сума: {total:,.2f} грн</b>',
         '',
-        '📂 *По категоріях:*',
+        '📂 <b>По категоріях:</b>',
     ]
     for key, amt in sorted(by_cat.items(), key=lambda x: -x[1]):
         pct = amt / total * 100
         lines.append(f'  {CATEGORIES.get(key, key)}: {amt:,.2f} грн  ({pct:.0f}%)')
 
-    lines += ['', '👥 *По учасниках:*']
+    lines += ['', '👥 <b>По учасниках:</b>']
     for uname, amt in sorted(by_user.items(), key=lambda x: -x[1]):
         lines.append(f'  {uname}: {amt:,.2f} грн')
 
@@ -124,24 +124,24 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     database.upsert_user(user.id, _display_name(user))
     await update.message.reply_text(
-        f'👋 Привіт, *{user.first_name}*!\n\n'
+        f'👋 Привіт, <b>{user.first_name}</b>!\n\n'
         '💰 Я допомагаю сім\'ї відстежувати витрати.\n'
         'Кожен член родини може додавати свої витрати — все зберігається спільно.\n\n'
         'Що робимо?',
-        parse_mode='Markdown',
+        parse_mode='HTML',
         reply_markup=_main_menu(),
     )
 
 
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        '📖 *Команди:*\n'
+        '<b>📖 Команди:</b>\n'
         '/start — головне меню\n'
         '/add — додати витрату\n'
         '/report — звіт за поточний місяць\n'
         '/cancel — скасувати поточну дію\n\n'
         '💡 Просто поділись ботом з рідними — кожен може додавати витрати.',
-        parse_mode='Markdown',
+        parse_mode='HTML',
     )
 
 
@@ -155,7 +155,7 @@ async def cmd_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = _build_report(now.month, now.year)
     await update.message.reply_text(
         text if text else '📊 Витрат цього місяця ще немає.',
-        parse_mode='Markdown' if text else None,
+        parse_mode='HTML' if text else None,
         reply_markup=_main_menu() if text else None,
     )
 
@@ -174,15 +174,15 @@ async def _save_and_confirm(chat_id: int, user, context: ContextTypes.DEFAULT_TY
     database.add_expense(user.id, _display_name(user), amount, category, description)
 
     text = (
-        '✅ *Витрату збережено!*\n\n'
-        f'💵 Сума: *{amount:,.2f} грн*\n'
+        '✅ <b>Витрату збережено!</b>\n\n'
+        f'💵 Сума: <b>{amount:,.2f} грн</b>\n'
         f'📂 Категорія: {CATEGORIES[category]}\n'
         + (f'📝 Опис: {description}' if description else '')
     )
     await context.bot.send_message(
         chat_id=chat_id,
         text=text,
-        parse_mode='Markdown',
+        parse_mode='HTML',
         reply_markup=_main_menu(),
     )
 
@@ -200,8 +200,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 raise ValueError
         except ValueError:
             await update.message.reply_text(
-                '❌ Не розумію. Введи число, наприклад: *250* або *1500.50*',
-                parse_mode='Markdown',
+                '❌ Не розумію. Введи число, наприклад: 250 або 1500.50',
             )
             return
 
@@ -236,7 +235,7 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text = _build_report(now.month, now.year)
         await query.message.reply_text(
             text if text else '📊 Витрат цього місяця ще немає.',
-            parse_mode='Markdown' if text else None,
+            parse_mode='HTML' if text else None,
             reply_markup=_main_menu() if text else None,
         )
 
@@ -277,10 +276,10 @@ async def auto_monthly_report(context: ContextTypes.DEFAULT_TYPE):
     text  = _build_report(month, year)
     if not text:
         return
-    full = '🔔 *Автоматичний місячний звіт*\n\n' + text
+    full = '🔔 <b>Автоматичний місячний звіт</b>\n\n' + text
     for user_id in database.get_all_user_ids():
         try:
-            await context.bot.send_message(chat_id=user_id, text=full, parse_mode='Markdown')
+            await context.bot.send_message(chat_id=user_id, text=full, parse_mode='HTML')
         except Exception as exc:
             logger.warning('Cannot send auto-report to %s: %s', user_id, exc)
 

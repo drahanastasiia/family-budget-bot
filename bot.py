@@ -228,8 +228,19 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_cleardb(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    import sqlite3
+    db_path = database.DB_PATH
+    before = 0
+    try:
+        with sqlite3.connect(db_path) as conn:
+            before = conn.execute('SELECT COUNT(*) FROM expenses').fetchone()[0]
+    except Exception:
+        pass
     database.clear_expenses()
-    await update.message.reply_text('🗑 Усі витрати видалено.')
+    await update.message.reply_text(
+        f'🗑 Готово.\nБД: <code>{db_path}</code>\nВидалено записів: <b>{before}</b>',
+        parse_mode='HTML',
+    )
 
 
 async def cmd_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):

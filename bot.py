@@ -227,6 +227,11 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 
+async def cmd_cleardb(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    database.clear_expenses()
+    await update.message.reply_text('🗑 Усі витрати видалено.')
+
+
 async def cmd_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     _reset(context)
     await update.message.reply_text('❌ Скасовано.', reply_markup=_main_menu())
@@ -464,9 +469,10 @@ def main():
     persistence = PicklePersistence(filepath=os.path.join(data_dir, 'conversations.pickle'))
     app         = Application.builder().token(token).persistence(persistence).build()
 
-    app.add_handler(CommandHandler('start',  cmd_start))
-    app.add_handler(CommandHandler('help',   cmd_help))
-    app.add_handler(CommandHandler('cancel', cmd_cancel))
+    app.add_handler(CommandHandler('start',   cmd_start))
+    app.add_handler(CommandHandler('help',    cmd_help))
+    app.add_handler(CommandHandler('cancel',  cmd_cancel))
+    app.add_handler(CommandHandler('cleardb', cmd_cleardb))
     app.add_handler(CommandHandler('report', cmd_report))
     app.add_handler(CommandHandler('list',   cmd_list))
 

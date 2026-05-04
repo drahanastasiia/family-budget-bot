@@ -227,21 +227,6 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 
-async def cmd_cleardb(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    import sqlite3
-    db_path = database.DB_PATH
-    before = 0
-    try:
-        with sqlite3.connect(db_path) as conn:
-            before = conn.execute('SELECT COUNT(*) FROM expenses').fetchone()[0]
-    except Exception:
-        pass
-    database.clear_expenses()
-    await update.message.reply_text(
-        f'🗑 Готово.\nБД: <code>{db_path}</code>\nВидалено записів: <b>{before}</b>',
-        parse_mode='HTML',
-    )
-
 
 async def cmd_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     _reset(context)
@@ -471,9 +456,6 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
 
 def main():
     database.init_db()
-    if os.getenv('CLEAR_ON_START') == '1':
-        database.clear_expenses()
-        logger.info('DB cleared via CLEAR_ON_START flag.')
 
     token = os.getenv('BOT_TOKEN')
     if not token:
@@ -483,10 +465,9 @@ def main():
     persistence = PicklePersistence(filepath=os.path.join(data_dir, 'conversations.pickle'))
     app         = Application.builder().token(token).persistence(persistence).build()
 
-    app.add_handler(CommandHandler('start',   cmd_start))
-    app.add_handler(CommandHandler('help',    cmd_help))
-    app.add_handler(CommandHandler('cancel',  cmd_cancel))
-    app.add_handler(CommandHandler('cleardb', cmd_cleardb))
+    app.add_handler(CommandHandler('start',  cmd_start))
+    app.add_handler(CommandHandler('help',   cmd_help))
+    app.add_handler(CommandHandler('cancel', cmd_cancel))
     app.add_handler(CommandHandler('report', cmd_report))
     app.add_handler(CommandHandler('list',   cmd_list))
 

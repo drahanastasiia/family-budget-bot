@@ -150,6 +150,27 @@ async def cmd_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text('❌ Скасовано.', reply_markup=_main_menu())
 
 
+async def cmd_seed(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != 298810074:
+        return
+    uid  = update.effective_user.id
+    name = _display_name(update.effective_user)
+    database.upsert_user(uid, name)
+    database.upsert_user(999999999, '@boyfriend_test')
+    rows = [
+        (uid,       name,             850,  'food',          'Сільпо на тиждень'),
+        (uid,       name,             320,  'transport',     'Uber за місяць'),
+        (uid,       name,            1200,  'health',        'Стоматолог'),
+        (uid,       name,             450,  'clothing',      'Шкарпетки'),
+        (999999999, '@boyfriend_test', 2400, 'utilities',    'Комуналка'),
+        (999999999, '@boyfriend_test',  600, 'entertainment','Netflix + Spotify'),
+        (999999999, '@boyfriend_test',  180, 'food',         'Кава в офісі'),
+    ]
+    for r in rows:
+        database.add_expense(*r)
+    await update.message.reply_text('✅ Тестові витрати додано. Тепер спробуй /report')
+
+
 async def cmd_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
     now  = datetime.now(KYIV_TZ)
     text = _build_report(now.month, now.year)
@@ -305,6 +326,7 @@ def main():
     app.add_handler(CommandHandler('help',   cmd_help))
     app.add_handler(CommandHandler('cancel', cmd_cancel))
     app.add_handler(CommandHandler('add',    lambda u, c: _ask_amount(u.message.reply_text, c)))
+    app.add_handler(CommandHandler('seed',   cmd_seed))
     app.add_handler(CommandHandler('report', cmd_report))
     app.add_handler(CallbackQueryHandler(on_callback))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_text))

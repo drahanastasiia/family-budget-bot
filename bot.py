@@ -226,12 +226,6 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-async def cmd_cleardb(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != 298810074:
-        return
-    database.clear_expenses()
-    await update.message.reply_text('✅ Всі витрати видалено. База чиста.', reply_markup=_main_menu())
-
 
 async def cmd_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     _reset(context)
@@ -475,7 +469,7 @@ def main():
     app.add_handler(CommandHandler('cancel', cmd_cancel))
     app.add_handler(CommandHandler('report', cmd_report))
     app.add_handler(CommandHandler('list',   cmd_list))
-    app.add_handler(CommandHandler('cleardb', cmd_cleardb))
+
     app.add_handler(CommandHandler('add',    lambda u, c: _ask_amount(u.message.reply_text, c)))
     app.add_handler(CallbackQueryHandler(on_callback))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_text))

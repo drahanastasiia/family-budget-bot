@@ -471,6 +471,9 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
 
 def main():
     database.init_db()
+    if os.getenv('CLEAR_ON_START') == '1':
+        database.clear_expenses()
+        logger.info('DB cleared via CLEAR_ON_START flag.')
 
     token = os.getenv('BOT_TOKEN')
     if not token:

@@ -1,6 +1,7 @@
 import os
 import sqlite3
 from contextlib import contextmanager
+from typing import Optional
 
 _DATA_DIR = os.getenv('DATA_DIR', '.')
 DB_PATH = os.path.join(_DATA_DIR, 'expenses.db')
@@ -60,6 +61,17 @@ def add_expense(user_id: int, username: str, amount: float, category: str, descr
         )
 
 
+def delete_expense(expense_id: int):
+    with _db() as conn:
+        conn.execute('DELETE FROM expenses WHERE id = ?', (expense_id,))
+
+
+def get_expense_by_id(expense_id: int) -> Optional[dict]:
+    with _db() as conn:
+        row = conn.execute('SELECT * FROM expenses WHERE id = ?', (expense_id,)).fetchone()
+        return dict(row) if row else None
+
+
 def get_monthly_expenses(month: int, year: int) -> list[dict]:
     with _db() as conn:
         rows = conn.execute(
@@ -70,3 +82,11 @@ def get_monthly_expenses(month: int, year: int) -> list[dict]:
             (f'{month:02d}', str(year)),
         ).fetchall()
         return [dict(r) for r in rows]
+
+
+def get_today_total() -> float:
+    with _db() as conn:
+        row = conn.execute(
+            "SELECT COALESCE(SUM(amount), 0) as total FROM expenses WHERE date(created_at) = date('now')"
+        ).fetchone()
+        return row['total']

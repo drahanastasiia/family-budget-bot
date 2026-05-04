@@ -84,6 +84,11 @@ def get_monthly_expenses(month: int, year: int) -> list[dict]:
         return [dict(r) for r in rows]
 
 
+def clear_expenses():
+    with _db() as conn:
+        conn.execute('DELETE FROM expenses')
+
+
 def get_today_total() -> float:
     with _db() as conn:
         row = conn.execute(

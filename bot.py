@@ -204,8 +204,9 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     database.upsert_user(user.id, _display_name(user))
     await update.message.reply_text(
         f'👋 Привіт, <b>{user.first_name}</b>!\n\n'
-        '💰 Я допомагаю сім\'ї відстежувати витрати.\n'
-        'Кожен член родини може додавати свої витрати — все зберігається спільно.\n\n'
+        '🏡 Цей бот допомагає вам з партнером зрозуміти, куди йдуть гроші — '
+        'щоб впевнено планувати великі покупки й досягати спільних цілей.\n\n'
+        'Кожен вносить витрати зі свого телефону, а бот збирає загальну картину.\n\n'
         'Що робимо?',
         parse_mode='HTML',
         reply_markup=_main_menu(),
@@ -223,6 +224,13 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
         '💡 Просто поділись ботом з рідними — кожен може додавати витрати.',
         parse_mode='HTML',
     )
+
+
+async def cmd_cleardb(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != 298810074:
+        return
+    database.clear_expenses()
+    await update.message.reply_text('✅ Всі витрати видалено. База чиста.', reply_markup=_main_menu())
 
 
 async def cmd_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -467,6 +475,7 @@ def main():
     app.add_handler(CommandHandler('cancel', cmd_cancel))
     app.add_handler(CommandHandler('report', cmd_report))
     app.add_handler(CommandHandler('list',   cmd_list))
+    app.add_handler(CommandHandler('cleardb', cmd_cleardb))
     app.add_handler(CommandHandler('add',    lambda u, c: _ask_amount(u.message.reply_text, c)))
     app.add_handler(CallbackQueryHandler(on_callback))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_text))

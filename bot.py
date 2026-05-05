@@ -29,11 +29,50 @@ logger = logging.getLogger(__name__)
 CATEGORIES: dict[str, str] = {
     'food':          '🍔 Їжа',
     'transport':     '🚗 Транспорт',
-    'utilities':     '🏠 Комунальні',
+    'utilities':     '🔄 Регулярні платежі',
     'entertainment': '🎮 Розваги',
     'health':        '💊 Здоров\'я',
     'clothing':      '👕 Одяг',
     'other':         '📦 Інше',
+}
+
+SUBCATEGORIES: dict[str, list[tuple[str, str]]] = {
+    'food': [
+        ('groceries',  '🛒 Продукти'),
+        ('delivery',   '🚚 Доставка'),
+        ('cafe',       '☕ Кафе / ресторан'),
+        ('cigarettes', '🚬 Цигарки'),
+    ],
+    'transport': [
+        ('taxi',   '🚕 Таксі'),
+        ('public', '🚌 Громадський транспорт'),
+        ('fuel',   '⛽ Пальне'),
+    ],
+    'utilities': [
+        ('communal',      '💡 Комуналка'),
+        ('internet',      '🌐 Інтернет'),
+        ('mobile',        '📱 Мобільний зв\'язок'),
+        ('water',         '💧 Бутильована вода'),
+        ('subscriptions', '📺 Підписки'),
+    ],
+    'entertainment': [
+        ('bar',    '🍺 Бар / клуб'),
+        ('cinema', '🎬 Кіно / театр'),
+        ('games',  '🎮 Ігри / апки'),
+    ],
+    'health': [
+        ('medicine', '💊 Ліки'),
+        ('doctor',   '🏥 Лікар / аналізи'),
+        ('sport',    '🏋️ Спорт / зал'),
+    ],
+    'clothing': [
+        ('clothes',     '👕 Одяг'),
+        ('shoes',       '👟 Взуття'),
+        ('accessories', '👜 Аксесуари'),
+    ],
+    'other': [
+        ('gifts', '🎁 Подарунки'),
+    ],
 }
 
 MONTH_UA = [
@@ -48,6 +87,7 @@ MONTH_UA_GEN = [
 
 S_IDLE        = None
 S_WAIT_AMOUNT = 'wait_amount'
+S_WAIT_SUBCAT = 'wait_subcat'
 S_WAIT_DESC   = 'wait_desc'
 
 KYIV_TZ = pytz.timezone('Europe/Kyiv')
@@ -82,6 +122,20 @@ def _category_keyboard() -> InlineKeyboardMarkup:
     ]
     rows = [buttons[i:i + 2] for i in range(0, len(buttons), 2)]
     return InlineKeyboardMarkup(rows)
+
+
+def _subcategory_keyboard(category_key: str) -> InlineKeyboardMarkup:
+    subs = SUBCATEGORIES.get(category_key, [])
+    buttons = [InlineKeyboardButton(label, callback_data=f'subcat_{key}') for key, label in subs]
+    rows = [buttons[i:i + 2] for i in range(0, len(buttons), 2)]
+    rows.append([InlineKeyboardButton('⏭ Пропустити', callback_data='skip_subcat')])
+    return InlineKeyboardMarkup(rows)
+
+
+def _subcat_label(category: str, subcategory: str) -> str:
+    if not subcategory:
+        return ''
+    return dict(SUBCATEGORIES.get(category, [])).get(subcategory, subcategory)
 
 
 def _skip_keyboard() -> InlineKeyboardMarkup:
@@ -144,6 +198,14 @@ def _build_report(month: int, year: int) -> Optional[str]:
 
     total_diff = diff_str(total, prev_total)
 
+    by_subcat: dict[str, dict[str, float]] = {}
+    for e in expenses:
+        cat = e['category']
+        sub = e.get('subcategory') or ''
+        if sub:
+            by_subcat.setdefault(cat, {})
+            by_subcat[cat][sub] = by_subcat[cat].get(sub, 0) + e['amount']
+
     lines = [
         f'📊 <b>Звіт за {MONTH_UA[month]} {year}</b>',
         '',
@@ -152,10 +214,13 @@ def _build_report(month: int, year: int) -> Optional[str]:
         '📂 <b>По категоріях:</b>',
     ]
     for key, amt in sorted(by_cat.items(), key=lambda x: -x[1]):
-        pct   = amt / total * 100
-        label = CATEGORIES.get(key, key)
+        pct      = amt / total * 100
+        label    = CATEGORIES.get(key, key)
         cat_diff = diff_str(amt, prev_by_cat.get(key))
-        lines.append(f'  {label}: {amt:,.2f} грн  ({pct:.0f}%){cat_diff}')
+        lines.append(f'  {label}: <b>{amt:,.2f} грн</b>  ({pct:.0f}%){cat_diff}')
+        for sub_key, sub_amt in sorted(by_subcat.get(key, {}).items(), key=lambda x: -x[1]):
+            sub_label = _subcat_label(key, sub_key)
+            lines.append(f'    · {sub_label}: {sub_amt:,.0f} грн')
 
     lines += ['', '👥 <b>По учасниках:</b>']
     for uname, amt in sorted(by_user.items(), key=lambda x: -x[1]):
@@ -177,8 +242,10 @@ def _build_list(month: int, year: int) -> Optional[str]:
     for e in expenses[:20]:
         day  = e['created_at'][8:10]
         cat  = CATEGORIES.get(e['category'], e['category'])
+        sub  = e.get('subcategory') or ''
+        sub_part = f' · {_subcat_label(e["category"], sub)}' if sub else ''
         desc = f' — {e["description"]}' if e['description'] else ''
-        lines.append(f'{day}.{month:02d}  {cat}  <b>{e["amount"]:,.0f} грн</b>{desc}  <i>{e["username"]}</i>')
+        lines.append(f'{day}.{month:02d}  {cat}{sub_part}  <b>{e["amount"]:,.0f} грн</b>{desc}  <i>{e["username"]}</i>')
     if len(expenses) > 20:
         lines.append(f'\n…і ще {len(expenses) - 20} записів')
     return '\n'.join(lines)
@@ -256,15 +323,17 @@ async def _ask_amount(send_fn, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def _save_and_confirm(chat_id: int, user, context: ContextTypes.DEFAULT_TYPE, description: str):
-    amount   = context.user_data['amount']
-    category = context.user_data['category']
+    amount     = context.user_data['amount']
+    category   = context.user_data['category']
+    subcategory = context.user_data.get('subcategory', '')
     _reset(context)
-    database.add_expense(user.id, _display_name(user), amount, category, description)
+    database.add_expense(user.id, _display_name(user), amount, category, subcategory, description)
 
+    sub_line = f'\n🏷 {_subcat_label(category, subcategory)}' if subcategory else ''
     text = (
         '✅ <b>Витрату збережено!</b>\n\n'
         f'💵 Сума: <b>{amount:,.2f} грн</b>\n'
-        f'📂 Категорія: {CATEGORIES[category]}\n'
+        f'📂 Категорія: {CATEGORIES[category]}{sub_line}\n'
         + (f'📝 Опис: {description}' if description else '')
     )
     await context.bot.send_message(
@@ -396,9 +465,26 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         key = data[4:]
         context.user_data['category'] = key
-        context.user_data['state']    = S_WAIT_DESC
+        context.user_data['state']    = S_WAIT_SUBCAT
         await query.message.reply_text(
-            f'Категорія: {CATEGORIES[key]}\n\n📝 Додай опис (або пропусти):',
+            f'Категорія: {CATEGORIES[key]}\n\n🏷 Уточни підкатегорію (або пропусти):',
+            reply_markup=_subcategory_keyboard(key),
+        )
+
+    elif data.startswith('subcat_'):
+        sub_key = data[7:]
+        context.user_data['subcategory'] = sub_key
+        context.user_data['state']       = S_WAIT_DESC
+        await query.message.reply_text(
+            '📝 Додай опис (або пропусти):',
+            reply_markup=_skip_keyboard(),
+        )
+
+    elif data == 'skip_subcat':
+        context.user_data['subcategory'] = ''
+        context.user_data['state']       = S_WAIT_DESC
+        await query.message.reply_text(
+            '📝 Додай опис (або пропусти):',
             reply_markup=_skip_keyboard(),
         )
 

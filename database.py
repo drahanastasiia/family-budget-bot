@@ -33,10 +33,15 @@ def init_db():
                 username    TEXT NOT NULL,
                 amount      REAL NOT NULL,
                 category    TEXT NOT NULL,
+                subcategory TEXT DEFAULT '',
                 description TEXT DEFAULT '',
                 created_at  TEXT DEFAULT (datetime('now'))
             );
         ''')
+        try:
+            conn.execute("ALTER TABLE expenses ADD COLUMN subcategory TEXT DEFAULT ''")
+        except Exception:
+            pass
 
 
 def upsert_user(user_id: int, username: str):
@@ -53,11 +58,11 @@ def get_all_user_ids() -> list[int]:
         return [r['user_id'] for r in rows]
 
 
-def add_expense(user_id: int, username: str, amount: float, category: str, description: str):
+def add_expense(user_id: int, username: str, amount: float, category: str, subcategory: str, description: str):
     with _db() as conn:
         conn.execute(
-            'INSERT INTO expenses (user_id, username, amount, category, description) VALUES (?,?,?,?,?)',
-            (user_id, username, amount, category, description),
+            'INSERT INTO expenses (user_id, username, amount, category, subcategory, description) VALUES (?,?,?,?,?,?)',
+            (user_id, username, amount, category, subcategory, description),
         )
 
 

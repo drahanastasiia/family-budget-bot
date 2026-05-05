@@ -295,6 +295,21 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 
+async def cmd_restore(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    database.upsert_user(298810074, '@ana_drahan')
+    database.upsert_user(999000001, '@Lex8228')
+    entries = [
+        (298810074, '@ana_drahan', 1020,  'food',          '',       'Відновлено'),
+        (298810074, '@ana_drahan', 480,   'entertainment', 'cinema', 'Відновлено: кіно'),
+        (999000001, '@Lex8228',    21236, 'food',          '',       'Відновлено'),
+        (999000001, '@Lex8228',    4300,  'transport',     '',       'Відновлено'),
+        (999000001, '@Lex8228',    1465,  'entertainment', '',       'Відновлено'),
+    ]
+    for uid, uname, amount, cat, sub, desc in entries:
+        database.add_expense(uid, uname, amount, cat, sub, desc)
+    await update.message.reply_text('✅ Дані відновлено — 5 записів додано.')
+
+
 async def cmd_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     _reset(context)
     await update.message.reply_text('❌ Скасовано.', reply_markup=_main_menu())
@@ -551,9 +566,10 @@ def main():
     persistence = PicklePersistence(filepath=os.path.join(data_dir, 'conversations.pickle'))
     app         = Application.builder().token(token).persistence(persistence).build()
 
-    app.add_handler(CommandHandler('start',  cmd_start))
-    app.add_handler(CommandHandler('help',   cmd_help))
-    app.add_handler(CommandHandler('cancel', cmd_cancel))
+    app.add_handler(CommandHandler('start',   cmd_start))
+    app.add_handler(CommandHandler('help',    cmd_help))
+    app.add_handler(CommandHandler('cancel',  cmd_cancel))
+    app.add_handler(CommandHandler('restore', cmd_restore))
     app.add_handler(CommandHandler('report', cmd_report))
     app.add_handler(CommandHandler('list',   cmd_list))
 

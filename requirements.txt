@@ -2,3 +2,4 @@ python-telegram-bot~=21.0
 APScheduler~=3.10
 python-dotenv~=1.0
 pytz
+openpyxl~=3.1

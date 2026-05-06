@@ -199,12 +199,18 @@ def _build_report(month: int, year: int) -> Optional[str]:
     total_diff = diff_str(total, prev_total)
 
     by_subcat: dict[str, dict[str, float]] = {}
+    # (category, subcategory) → list of expenses with descriptions
+    commented: dict[tuple, list] = {}
     for e in expenses:
         cat = e['category']
         sub = e.get('subcategory') or ''
         if sub:
             by_subcat.setdefault(cat, {})
             by_subcat[cat][sub] = by_subcat[cat].get(sub, 0) + e['amount']
+        if e.get('description'):
+            key_cs = (cat, sub)
+            commented.setdefault(key_cs, [])
+            commented[key_cs].append(e)
 
     lines = [
         f'📊 <b>Звіт за {MONTH_UA[month]} {year}</b>',
@@ -218,9 +224,16 @@ def _build_report(month: int, year: int) -> Optional[str]:
         label    = CATEGORIES.get(key, key)
         cat_diff = diff_str(amt, prev_by_cat.get(key))
         lines.append(f'  {label}: <b>{amt:,.2f} грн</b>  ({pct:.0f}%){cat_diff}')
-        for sub_key, sub_amt in sorted(by_subcat.get(key, {}).items(), key=lambda x: -x[1]):
-            sub_label = _subcat_label(key, sub_key)
-            lines.append(f'    · {sub_label}: {sub_amt:,.0f} грн')
+        subs = by_subcat.get(key, {})
+        if subs:
+            for sub_key, sub_amt in sorted(subs.items(), key=lambda x: -x[1]):
+                sub_label = _subcat_label(key, sub_key)
+                lines.append(f'    · {sub_label}: {sub_amt:,.0f} грн')
+                for c in commented.get((key, sub_key), []):
+                    lines.append(f'      └ <i>"{c["description"]}"</i> — {c["amount"]:,.0f} грн  {c["username"]}')
+        # expenses with no subcategory but with description
+        for c in commented.get((key, ''), []):
+            lines.append(f'    └ <i>"{c["description"]}"</i> — {c["amount"]:,.0f} грн  {c["username"]}')
 
     lines += ['', '👥 <b>По учасниках:</b>']
     for uname, amt in sorted(by_user.items(), key=lambda x: -x[1]):
@@ -249,6 +262,85 @@ def _build_list(month: int, year: int) -> Optional[str]:
     if len(expenses) > 20:
         lines.append(f'\n…і ще {len(expenses) - 20} записів')
     return '\n'.join(lines)
+
+# ── excel builder ────────────────────────────────────────────────────────────
+
+def _build_excel(month: int, year: int):
+    import io
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+
+    expenses = database.get_monthly_expenses(month, year)
+    if not expenses:
+        return None
+
+    wb = Workbook()
+
+    # ── Sheet 1: by day ──
+    ws1 = wb.active
+    ws1.title = 'По днях'
+    headers = ['Дата', 'Хто', 'Категорія', 'Підкатегорія', 'Сума, грн', 'Коментар']
+    ws1.append(headers)
+    for cell in ws1[1]:
+        cell.font = Font(bold=True)
+        cell.fill = PatternFill('solid', fgColor='D9E1F2')
+
+    for e in reversed(expenses):
+        date = f"{e['created_at'][8:10]}.{e['created_at'][5:7]}.{e['created_at'][:4]}"
+        cat  = CATEGORIES.get(e['category'], e['category'])
+        sub  = _subcat_label(e['category'], e.get('subcategory') or '')
+        ws1.append([date, e['username'], cat, sub, e['amount'], e.get('description') or ''])
+
+    total_row = ['', '', '', 'РАЗОМ:', sum(e['amount'] for e in expenses), '']
+    ws1.append(total_row)
+    for cell in ws1[ws1.max_row]:
+        cell.font = Font(bold=True)
+
+    ws1.column_dimensions['A'].width = 12
+    ws1.column_dimensions['B'].width = 16
+    ws1.column_dimensions['C'].width = 22
+    ws1.column_dimensions['D'].width = 22
+    ws1.column_dimensions['E'].width = 14
+    ws1.column_dimensions['F'].width = 30
+
+    # ── Sheet 2: summary by category ──
+    ws2 = wb.create_sheet('По категоріях')
+    ws2.append(['Категорія', 'Підкатегорія', 'Сума, грн'])
+    for cell in ws2[1]:
+        cell.font = Font(bold=True)
+        cell.fill = PatternFill('solid', fgColor='D9E1F2')
+
+    by_cat: dict[str, float] = {}
+    by_subcat: dict[str, dict[str, float]] = {}
+    for e in expenses:
+        cat = e['category']
+        sub = e.get('subcategory') or ''
+        by_cat[cat] = by_cat.get(cat, 0) + e['amount']
+        by_subcat.setdefault(cat, {})
+        by_subcat[cat][sub] = by_subcat[cat].get(sub, 0) + e['amount']
+
+    for cat_key, cat_amt in sorted(by_cat.items(), key=lambda x: -x[1]):
+        cat_label = CATEGORIES.get(cat_key, cat_key)
+        row = ws2.max_row + 1
+        ws2.append([cat_label, '', cat_amt])
+        ws2.cell(row, 1).font = Font(bold=True)
+        for sub_key, sub_amt in sorted(by_subcat[cat_key].items(), key=lambda x: -x[1]):
+            sub_label = _subcat_label(cat_key, sub_key) if sub_key else '—'
+            ws2.append(['', sub_label, sub_amt])
+
+    ws2.append(['РАЗОМ', '', sum(e['amount'] for e in expenses)])
+    for cell in ws2[ws2.max_row]:
+        cell.font = Font(bold=True)
+
+    ws2.column_dimensions['A'].width = 24
+    ws2.column_dimensions['B'].width = 24
+    ws2.column_dimensions['C'].width = 14
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return buf
+
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -305,6 +397,16 @@ async def cmd_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cmd_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
     now  = datetime.now(KYIV_TZ)
     await _send_report(update.message.reply_text, now.month, now.year)
+
+
+async def cmd_excel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    now = datetime.now(KYIV_TZ)
+    buf = _build_excel(now.month, now.year)
+    if not buf:
+        await update.message.reply_text('📋 Витрат цього місяця ще немає.')
+        return
+    filename = f'звіт_{MONTH_UA[now.month].lower()}_{now.year}.xlsx'
+    await update.message.reply_document(document=buf, filename=filename)
 
 
 async def cmd_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -528,10 +630,15 @@ async def auto_monthly_report(context: ContextTypes.DEFAULT_TYPE):
     text  = _build_report(month, year)
     if not text:
         return
-    full = f'🔔 <b>Автоматичний місячний звіт</b>\n\n{text}'
+    full     = f'🔔 <b>Автоматичний місячний звіт</b>\n\n{text}'
+    buf      = _build_excel(month, year)
+    filename = f'звіт_{MONTH_UA[month].lower()}_{year}.xlsx'
     for user_id in database.get_all_user_ids():
         try:
             await context.bot.send_message(chat_id=user_id, text=full, parse_mode='HTML')
+            if buf:
+                buf.seek(0)
+                await context.bot.send_document(chat_id=user_id, document=buf, filename=filename)
         except Exception as exc:
             logger.warning('Cannot send auto-report to %s: %s', user_id, exc)
 
@@ -558,6 +665,7 @@ def main():
     app.add_handler(CommandHandler('cancel', cmd_cancel))
     app.add_handler(CommandHandler('report', cmd_report))
     app.add_handler(CommandHandler('list',   cmd_list))
+    app.add_handler(CommandHandler('excel',  cmd_excel))
 
     app.add_handler(CommandHandler('add',    lambda u, c: _ask_amount(u.message.reply_text, c)))
     app.add_handler(CallbackQueryHandler(on_callback))

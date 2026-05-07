@@ -389,17 +389,6 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 
-async def cmd_fixparking(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    with database._db() as conn:
-        row = conn.execute(
-            "SELECT id FROM expenses WHERE username='@Lex8228' AND description='Парковка' LIMIT 1"
-        ).fetchone()
-    if not row:
-        await update.message.reply_text('❌ Запис не знайдено.')
-        return
-    database.update_expense_subcategory(row['id'], '')
-    await update.message.reply_text(f'✅ Виправлено (id={row["id"]}): підкатегорія прибрана, опис залишився.')
-
 
 async def cmd_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     _reset(context)
@@ -672,10 +661,9 @@ def main():
     persistence = PicklePersistence(filepath=os.path.join(data_dir, 'conversations.pickle'))
     app         = Application.builder().token(token).persistence(persistence).build()
 
-    app.add_handler(CommandHandler('start',       cmd_start))
-    app.add_handler(CommandHandler('help',        cmd_help))
-    app.add_handler(CommandHandler('cancel',      cmd_cancel))
-    app.add_handler(CommandHandler('fixparking',  cmd_fixparking))
+    app.add_handler(CommandHandler('start',  cmd_start))
+    app.add_handler(CommandHandler('help',   cmd_help))
+    app.add_handler(CommandHandler('cancel', cmd_cancel))
     app.add_handler(CommandHandler('report', cmd_report))
     app.add_handler(CommandHandler('list',   cmd_list))
     app.add_handler(CommandHandler('excel',  cmd_excel))

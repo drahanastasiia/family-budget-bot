@@ -208,18 +208,16 @@ def _build_report(month: int, year: int) -> Optional[str]:
     total_diff = diff_str(total, prev_total)
 
     by_subcat: dict[str, dict[str, float]] = {}
-    # (category, subcategory) → list of expenses with descriptions
-    commented: dict[tuple, list] = {}
+    # (category, subcategory) → list of all expenses
+    sub_expenses: dict[tuple, list] = {}
     for e in expenses:
         cat = e['category']
         sub = e.get('subcategory') or ''
         if sub:
             by_subcat.setdefault(cat, {})
             by_subcat[cat][sub] = by_subcat[cat].get(sub, 0) + e['amount']
-        if e.get('description'):
-            key_cs = (cat, sub)
-            commented.setdefault(key_cs, [])
-            commented[key_cs].append(e)
+        sub_expenses.setdefault((cat, sub), [])
+        sub_expenses[(cat, sub)].append(e)
 
     lines = [
         f'📊 <b>Звіт за {MONTH_UA[month]} {year}</b>',
@@ -236,13 +234,19 @@ def _build_report(month: int, year: int) -> Optional[str]:
         subs = by_subcat.get(key, {})
         if subs:
             for sub_key, sub_amt in sorted(subs.items(), key=lambda x: -x[1]):
-                sub_label = _subcat_label(key, sub_key)
-                lines.append(f'    · {sub_label}: {sub_amt:,.0f} грн')
-                for c in commented.get((key, sub_key), []):
-                    lines.append(f'      └ <i>"{c["description"]}"</i> — {c["amount"]:,.0f} грн  {c["username"]}')
+                sub_label  = _subcat_label(key, sub_key)
+                sub_exps   = sub_expenses.get((key, sub_key), [])
+                one_person = len(sub_exps) == 1
+                user_suffix = f'  <i>{sub_exps[0]["username"]}</i>' if one_person else ''
+                lines.append(f'    · {sub_label}: {sub_amt:,.0f} грн{user_suffix}')
+                if not one_person:
+                    for c in sub_exps:
+                        if c.get('description'):
+                            lines.append(f'      └ <i>"{c["description"]}"</i> — {c["amount"]:,.0f} грн  {c["username"]}')
         # expenses with no subcategory but with description
-        for c in commented.get((key, ''), []):
-            lines.append(f'    └ <i>"{c["description"]}"</i> — {c["amount"]:,.0f} грн  {c["username"]}')
+        for c in sub_expenses.get((key, ''), []):
+            if c.get('description'):
+                lines.append(f'    └ <i>"{c["description"]}"</i> — {c["amount"]:,.0f} грн  {c["username"]}')
 
     lines += ['', '👥 <b>По учасниках:</b>']
     for uname, amt in sorted(by_user.items(), key=lambda x: -x[1]):

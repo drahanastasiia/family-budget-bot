@@ -433,6 +433,18 @@ async def cmd_fixcats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text('\n'.join(results) if results else '❌ Записи не знайдено.')
 
 
+async def cmd_fixana(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    with database._db() as conn:
+        row = conn.execute(
+            "SELECT id FROM expenses WHERE username='@ana_drahan' AND description='Відновлено' AND category='food' LIMIT 1"
+        ).fetchone()
+    if not row:
+        await update.message.reply_text('❌ Запис не знайдено.')
+        return
+    database.update_expense_subcategory(row['id'], 'groceries')
+    await update.message.reply_text('✅ 1,020 грн → 🛒 Продукти')
+
+
 async def cmd_dumpdesc(update: Update, context: ContextTypes.DEFAULT_TYPE):
     with database._db() as conn:
         rows = conn.execute(
@@ -727,6 +739,7 @@ def main():
     app.add_handler(CommandHandler('cancel',   cmd_cancel))
     app.add_handler(CommandHandler('dumpdesc', cmd_dumpdesc))
     app.add_handler(CommandHandler('fixcats',  cmd_fixcats))
+    app.add_handler(CommandHandler('fixana',   cmd_fixana))
     app.add_handler(CommandHandler('report', cmd_report))
     app.add_handler(CommandHandler('list',   cmd_list))
     app.add_handler(CommandHandler('excel',  cmd_excel))

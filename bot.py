@@ -403,65 +403,6 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 
-async def cmd_fixcats(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    results = []
-    with database._db() as conn:
-        # Парковка → transport/parking
-        row = conn.execute(
-            "SELECT id FROM expenses WHERE username='@Lex8228' AND description='Парковка'"
-        ).fetchone()
-        if row:
-            database.update_expense_subcategory(row['id'], 'parking')
-            results.append('✅ Парковка → 🅿️ Парковка')
-
-        # Спасибо → other/transfer
-        row = conn.execute(
-            "SELECT id FROM expenses WHERE username='@Lex8228' AND description='«Спасибо»'"
-        ).fetchone()
-        if row:
-            database.update_expense_category(row['id'], 'other', 'transfer')
-            results.append('✅ «Спасибо» → 💸 Переказ / подяка')
-
-        # Педікюр → beauty/pedicure
-        row = conn.execute(
-            "SELECT id FROM expenses WHERE username='@ana_drahan' AND description LIKE '%педікюр%'"
-        ).fetchone()
-        if row:
-            database.update_expense_category(row['id'], 'beauty', 'pedicure')
-            results.append('✅ Педікюр → 💄 Краса / 🦶 Педікюр')
-
-    await update.message.reply_text('\n'.join(results) if results else '❌ Записи не знайдено.')
-
-
-async def cmd_fixana(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    with database._db() as conn:
-        row = conn.execute(
-            "SELECT id FROM expenses WHERE username='@ana_drahan' AND description='Відновлено' AND category='food' LIMIT 1"
-        ).fetchone()
-    if not row:
-        await update.message.reply_text('❌ Запис не знайдено.')
-        return
-    database.update_expense_subcategory(row['id'], 'groceries')
-    await update.message.reply_text('✅ 1,020 грн → 🛒 Продукти')
-
-
-async def cmd_dumpdesc(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    with database._db() as conn:
-        rows = conn.execute(
-            "SELECT category, subcategory, description FROM expenses "
-            "WHERE description != '' AND description != 'Відновлено' "
-            "ORDER BY category, subcategory"
-        ).fetchall()
-    if not rows:
-        await update.message.reply_text('Описів немає.')
-        return
-    lines = []
-    for r in rows:
-        cat = CATEGORIES.get(r['category'], r['category'])
-        sub = _subcat_label(r['category'], r['subcategory']) if r['subcategory'] else '—'
-        lines.append(f'{cat} / {sub}: {r["description"]}')
-    await update.message.reply_text('\n'.join(lines))
-
 
 async def cmd_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     _reset(context)
@@ -734,12 +675,9 @@ def main():
     persistence = PicklePersistence(filepath=os.path.join(data_dir, 'conversations.pickle'))
     app         = Application.builder().token(token).persistence(persistence).build()
 
-    app.add_handler(CommandHandler('start',    cmd_start))
-    app.add_handler(CommandHandler('help',     cmd_help))
-    app.add_handler(CommandHandler('cancel',   cmd_cancel))
-    app.add_handler(CommandHandler('dumpdesc', cmd_dumpdesc))
-    app.add_handler(CommandHandler('fixcats',  cmd_fixcats))
-    app.add_handler(CommandHandler('fixana',   cmd_fixana))
+    app.add_handler(CommandHandler('start',  cmd_start))
+    app.add_handler(CommandHandler('help',   cmd_help))
+    app.add_handler(CommandHandler('cancel', cmd_cancel))
     app.add_handler(CommandHandler('report', cmd_report))
     app.add_handler(CommandHandler('list',   cmd_list))
     app.add_handler(CommandHandler('excel',  cmd_excel))

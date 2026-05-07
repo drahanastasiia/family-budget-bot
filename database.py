@@ -66,6 +66,11 @@ def add_expense(user_id: int, username: str, amount: float, category: str, subca
         )
 
 
+def update_expense_subcategory(expense_id: int, subcategory: str):
+    with _db() as conn:
+        conn.execute('UPDATE expenses SET subcategory = ? WHERE id = ?', (subcategory, expense_id))
+
+
 def delete_expense(expense_id: int):
     with _db() as conn:
         conn.execute('DELETE FROM expenses WHERE id = ?', (expense_id,))

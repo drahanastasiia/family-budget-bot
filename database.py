@@ -71,6 +71,11 @@ def update_expense_subcategory(expense_id: int, subcategory: str):
         conn.execute('UPDATE expenses SET subcategory = ? WHERE id = ?', (subcategory, expense_id))
 
 
+def update_expense_category(expense_id: int, category: str, subcategory: str):
+    with _db() as conn:
+        conn.execute('UPDATE expenses SET category = ?, subcategory = ? WHERE id = ?', (category, subcategory, expense_id))
+
+
 def delete_expense(expense_id: int):
     with _db() as conn:
         conn.execute('DELETE FROM expenses WHERE id = ?', (expense_id,))

@@ -33,6 +33,7 @@ CATEGORIES: dict[str, str] = {
     'entertainment': '🎮 Розваги',
     'health':        '💊 Здоров\'я',
     'clothing':      '👕 Одяг',
+    'beauty':        '💄 Краса',
     'other':         '📦 Інше',
 }
 
@@ -44,9 +45,10 @@ SUBCATEGORIES: dict[str, list[tuple[str, str]]] = {
         ('cigarettes', '🚬 Цигарки'),
     ],
     'transport': [
-        ('taxi',   '🚕 Таксі'),
-        ('public', '🚌 Громадський транспорт'),
-        ('fuel',   '⛽ Пальне'),
+        ('taxi',    '🚕 Таксі'),
+        ('public',  '🚌 Громадський транспорт'),
+        ('fuel',    '⛽ Пальне'),
+        ('parking', '🅿️ Парковка'),
     ],
     'utilities': [
         ('communal',      '💡 Комуналка'),
@@ -70,8 +72,15 @@ SUBCATEGORIES: dict[str, list[tuple[str, str]]] = {
         ('shoes',       '👟 Взуття'),
         ('accessories', '👜 Аксесуари'),
     ],
+    'beauty': [
+        ('manicure', '💅 Манікюр'),
+        ('pedicure', '🦶 Педікюр'),
+        ('haircut',  '✂️ Стрижка'),
+        ('other',    '🪞 Інше'),
+    ],
     'other': [
-        ('gifts', '🎁 Подарунки'),
+        ('gifts',    '🎁 Подарунки'),
+        ('transfer', '💸 Переказ / подяка'),
     ],
 }
 
@@ -390,6 +399,36 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 
+async def cmd_fixcats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    results = []
+    with database._db() as conn:
+        # Парковка → transport/parking
+        row = conn.execute(
+            "SELECT id FROM expenses WHERE username='@Lex8228' AND description='Парковка'"
+        ).fetchone()
+        if row:
+            database.update_expense_subcategory(row['id'], 'parking')
+            results.append('✅ Парковка → 🅿️ Парковка')
+
+        # Спасибо → other/transfer
+        row = conn.execute(
+            "SELECT id FROM expenses WHERE username='@Lex8228' AND description='«Спасибо»'"
+        ).fetchone()
+        if row:
+            database.update_expense_category(row['id'], 'other', 'transfer')
+            results.append('✅ «Спасибо» → 💸 Переказ / подяка')
+
+        # Педікюр → beauty/pedicure
+        row = conn.execute(
+            "SELECT id FROM expenses WHERE username='@ana_drahan' AND description LIKE '%педікюр%'"
+        ).fetchone()
+        if row:
+            database.update_expense_category(row['id'], 'beauty', 'pedicure')
+            results.append('✅ Педікюр → 💄 Краса / 🦶 Педікюр')
+
+    await update.message.reply_text('\n'.join(results) if results else '❌ Записи не знайдено.')
+
+
 async def cmd_dumpdesc(update: Update, context: ContextTypes.DEFAULT_TYPE):
     with database._db() as conn:
         rows = conn.execute(
@@ -683,6 +722,7 @@ def main():
     app.add_handler(CommandHandler('help',     cmd_help))
     app.add_handler(CommandHandler('cancel',   cmd_cancel))
     app.add_handler(CommandHandler('dumpdesc', cmd_dumpdesc))
+    app.add_handler(CommandHandler('fixcats',  cmd_fixcats))
     app.add_handler(CommandHandler('report', cmd_report))
     app.add_handler(CommandHandler('list',   cmd_list))
     app.add_handler(CommandHandler('excel',  cmd_excel))

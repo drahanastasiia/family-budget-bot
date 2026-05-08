@@ -114,12 +114,15 @@ EVENING_MESSAGES = [
 def _main_menu() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [
-            InlineKeyboardButton('➕ Додати витрату',   callback_data='menu_add'),
-            InlineKeyboardButton('📊 Звіт',             callback_data='menu_report'),
+            InlineKeyboardButton('➕ Додати витрату',    callback_data='menu_add'),
+            InlineKeyboardButton('📊 Звіт',              callback_data='menu_report'),
         ],
         [
-            InlineKeyboardButton('📋 Список витрат',    callback_data='menu_list'),
+            InlineKeyboardButton('📋 Список витрат',     callback_data='menu_list'),
             InlineKeyboardButton('↩️ Скасувати останню', callback_data='menu_undo'),
+        ],
+        [
+            InlineKeyboardButton('🕐 Останні 5 витрат',  callback_data='menu_last'),
         ],
     ])
 
@@ -539,6 +542,21 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data.startswith('report_'):
         _, m, y = data.split('_')
         await _send_report(query.message.reply_text, int(m), int(y))
+
+    elif data == 'menu_last':
+        expenses = database.get_last_expenses(5)
+        if not expenses:
+            await query.message.reply_text('📋 Витрат ще немає.', reply_markup=_main_menu())
+            return
+        lines = ['📋 <b>Останні 5 витрат:</b>\n']
+        for e in expenses:
+            date = f"{e['created_at'][8:10]}.{e['created_at'][5:7]}"
+            cat  = CATEGORIES.get(e['category'], e['category'])
+            sub  = _subcat_label(e['category'], e.get('subcategory') or '')
+            sub_part  = f' · {sub}' if sub else ''
+            desc_part = f' — <i>{e["description"]}</i>' if e.get('description') else ''
+            lines.append(f'{date}  {cat}{sub_part}  <b>{e["amount"]:,.0f} грн</b>{desc_part}  {e["username"]}')
+        await query.message.reply_text('\n'.join(lines), parse_mode='HTML', reply_markup=_main_menu())
 
     elif data == 'menu_list':
         now  = datetime.now(KYIV_TZ)

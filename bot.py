@@ -424,6 +424,22 @@ async def cmd_excel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_document(document=buf, filename=filename)
 
 
+async def cmd_last(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    expenses = database.get_last_expenses(5)
+    if not expenses:
+        await update.message.reply_text('📋 Витрат ще немає.')
+        return
+    lines = ['📋 <b>Останні 5 витрат:</b>\n']
+    for e in expenses:
+        date = f"{e['created_at'][8:10]}.{e['created_at'][5:7]}"
+        cat  = CATEGORIES.get(e['category'], e['category'])
+        sub  = _subcat_label(e['category'], e.get('subcategory') or '')
+        sub_part  = f' · {sub}' if sub else ''
+        desc_part = f' — <i>{e["description"]}</i>' if e.get('description') else ''
+        lines.append(f'{date}  {cat}{sub_part}  <b>{e["amount"]:,.0f} грн</b>{desc_part}  {e["username"]}')
+    await update.message.reply_text('\n'.join(lines), parse_mode='HTML', reply_markup=_main_menu())
+
+
 async def cmd_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     now  = datetime.now(KYIV_TZ)
     text = _build_list(now.month, now.year)
@@ -680,6 +696,7 @@ def main():
     app.add_handler(CommandHandler('cancel', cmd_cancel))
     app.add_handler(CommandHandler('report', cmd_report))
     app.add_handler(CommandHandler('list',   cmd_list))
+    app.add_handler(CommandHandler('last',   cmd_last))
     app.add_handler(CommandHandler('excel',  cmd_excel))
 
     app.add_handler(CommandHandler('add',    lambda u, c: _ask_amount(u.message.reply_text, c)))

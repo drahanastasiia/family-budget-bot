@@ -104,6 +104,14 @@ def clear_expenses():
         conn.execute('DELETE FROM expenses')
 
 
+def get_last_expenses(limit: int = 5) -> list[dict]:
+    with _db() as conn:
+        rows = conn.execute(
+            'SELECT * FROM expenses ORDER BY created_at DESC LIMIT ?', (limit,)
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
 def get_today_total() -> float:
     with _db() as conn:
         row = conn.execute(

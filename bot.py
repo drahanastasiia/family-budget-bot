@@ -433,7 +433,7 @@ async def cmd_last(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text('📋 Витрат ще немає.')
         return
     lines = ['📋 <b>Останні 5 витрат:</b>\n']
-    for e in expenses:
+    for e in reversed(expenses):
         date = f"{e['created_at'][8:10]}.{e['created_at'][5:7]}"
         cat  = CATEGORIES.get(e['category'], e['category'])
         sub  = _subcat_label(e['category'], e.get('subcategory') or '')
@@ -549,7 +549,7 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.message.reply_text('📋 Витрат ще немає.', reply_markup=_main_menu())
             return
         lines = ['📋 <b>Останні 5 витрат:</b>\n']
-        for e in expenses:
+        for e in reversed(expenses):
             date = f"{e['created_at'][8:10]}.{e['created_at'][5:7]}"
             cat  = CATEGORIES.get(e['category'], e['category'])
             sub  = _subcat_label(e['category'], e.get('subcategory') or '')
